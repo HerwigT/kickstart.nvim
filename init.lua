@@ -301,6 +301,10 @@ require('lazy').setup({
   { -- Useful plugin to show you pending keybinds.
     'folke/which-key.nvim',
     event = 'VimEnter', -- Sets the loading event to 'VimEnter'
+    dependencies = {
+      { 'nvim-mini/mini.nvim', version = '*' },
+      { 'nvim-tree/nvim-web-devicons', opts = {} },
+    },
     opts = {
       -- delay between pressing a key and opening which-key (milliseconds)
       -- this setting is independent of vim.o.timeoutlen
@@ -347,10 +351,75 @@ require('lazy').setup({
         { '<leader>s', group = '[S]earch' },
         { '<leader>t', group = '[T]oggle' },
         { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
+        { '<leader>b', group = 'Debugger' },
+        {
+          '<leader>bt',
+          function()
+            require('dap').toggle_breakpoint()
+          end,
+          desc = 'Toggle Breakpoint',
+        },
+        {
+          '<leader>bc',
+          function()
+            require('dap').continue()
+          end,
+          desc = 'Continue',
+        },
+        {
+          '<leader>bi',
+          function()
+            require('dap').step_into()
+          end,
+          desc = 'Step Into',
+        },
+        {
+          '<leader>bo',
+          function()
+            require('dap').step_over()
+          end,
+          desc = 'Step Over',
+        },
+        {
+          '<leader>bu',
+          function()
+            require('dap').step_out()
+          end,
+          desc = 'Step Out',
+        },
+        {
+          '<leader>bl',
+          function()
+            require('dap').run_last()
+          end,
+          desc = 'Run Last',
+        },
+        {
+          '<leader>bq',
+          function()
+            require('dap').terminate()
+            require('dapui').close()
+            require('nvim-dap-virtual-text').toggle()
+          end,
+          desc = 'Terminate',
+        },
+        {
+          '<leader>bb',
+          function()
+            require('dap').list_breakpoints()
+          end,
+          desc = 'List Breakpoints',
+        },
+        {
+          '<leader>be',
+          function()
+            require('dap').set_exception_breakpoints { 'all' }
+          end,
+          desc = 'Set Exception Breakpoints',
+        },
       },
     },
   },
-
   -- NOTE: Plugins can specify dependencies.
   --
   -- The dependencies are proper plugin specifications as well - anything
@@ -671,7 +740,7 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-        -- clangd = {},
+        clangd = {},
         -- gopls = {},
         pyright = {},
         astro = {},
@@ -720,6 +789,8 @@ require('lazy').setup({
         'stylua', -- Used to format Lua code
         'black',
         'prettier',
+        'clang-format',
+        'cpplint',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -738,6 +809,17 @@ require('lazy').setup({
         },
       }
     end,
+  },
+
+  { -- DAP
+    'mfussenegger/nvim-dap',
+    event = 'VeryLazy',
+    dependencies = {
+      'rcarriga/nvim-dap-ui',
+      'nvim-neotest/nvim-nio',
+      'jay-babu/mason-nvim-dap.nvim',
+      'theHamsta/nvim-dap-virtual-text',
+    },
   },
 
   { -- Autoformat
@@ -1015,6 +1097,86 @@ require('lazy').setup({
     },
   },
 })
+
+local mason_dap = require 'mason-nvim-dap'
+local dap = require 'dap'
+local ui = require 'dapui'
+local dap_virtual_text = require 'nvim-dap-virtual-text'
+
+dap_virtual_text.setup()
+
+mason_dap.setup {
+  ensure_installed = { 'cppdbg', 'python' },
+  automatic_installation = true,
+  handlers = {
+    function(config)
+      require('mason-nvim-dap').default_setup(config)
+    end,
+  },
+}
+
+dap.configurations = {
+  cpp = {
+    {
+      name = 'Launch file',
+      type = 'cppdbg',
+      request = 'launch',
+      program = function()
+        return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+      end,
+      cwd = '${workspaceFolder}',
+      stopAtEntry = false,
+      MIMode = 'lldb',
+    },
+    {
+      name = 'Attach to lldbserver :1234',
+      type = 'cppdbg',
+      request = 'launch',
+      MIMode = 'lldb',
+      miDebuggerServerAddress = 'localhost:1234',
+      miDebuggerPath = '/usr/bin/lldb',
+      cwd = '${workspaceFolder}',
+      program = function()
+        return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+      end,
+    },
+  },
+  python = {
+    {
+      name = 'Launch file',
+      type = 'python',
+      request = 'launch',
+      program = '${file}',
+      pythonPath = function()
+        local cwd = vim.fn.getcwd()
+        if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
+          return cwd .. '/venv/bin/python'
+        elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
+          return cwd .. '/.venv/bin/python'
+        else
+          return '/usr/bin/python3'
+        end
+      end,
+    },
+  },
+}
+
+ui.setup()
+
+vim.fn.sign_define('DapBreakpoint', { text = '󰃤' })
+
+dap.listeners.before.attach.dapui_config = function()
+  ui.open()
+end
+dap.listeners.before.launch.dapui_config = function()
+  ui.open()
+end
+--dap.listeners.before.event_terminated.dapui_config = function()
+--  ui.close()
+--end
+--dap.listeners.before.event_exited.dapui_config = function()
+--  ui.close()
+--end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
