@@ -741,7 +741,7 @@ require('lazy').setup({
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
         clangd = {},
-        -- gopls = {},
+        gopls = {},
         pyright = {},
         astro = {},
         tailwindcss = {},
@@ -791,6 +791,7 @@ require('lazy').setup({
         'prettier',
         'clang-format',
         'cpplint',
+        'golangci-lint',
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
@@ -1106,7 +1107,7 @@ local dap_virtual_text = require 'nvim-dap-virtual-text'
 dap_virtual_text.setup()
 
 mason_dap.setup {
-  ensure_installed = { 'cppdbg', 'python' },
+  ensure_installed = { 'cppdbg', 'python', 'delve' },
   automatic_installation = true,
   handlers = {
     function(config)
@@ -1116,6 +1117,28 @@ mason_dap.setup {
 }
 
 dap.configurations = {
+  go = {
+    {
+      type = 'delve',
+      name = 'Debug',
+      request = 'launch',
+      program = '${file}',
+    },
+    {
+      type = 'delve',
+      name = 'Debug test',
+      request = 'launch',
+      mode = 'test',
+      program = '${file}',
+    },
+    {
+      type = 'delve',
+      name = 'Debug test (go.mod)',
+      request = 'launch',
+      mode = 'test',
+      program = './${relativeFileDirname}',
+    },
+  },
   cpp = {
     {
       name = 'Launch file',
